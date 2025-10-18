@@ -8,17 +8,22 @@
 #property version   "2.00"
 #property strict
 #property indicator_chart_window
-#property indicator_buffers 9
-#property indicator_plots   2
 
-#property indicator_label1  "Filling"
-#property indicator_type1   DRAW_FILLING
-#property indicator_color1  C'40,40,40', C'40,40,40'
+#ifdef __MQL5__
+   #property indicator_buffers 9
+   #property indicator_plots   2
 
-#property indicator_label2  "SuperTrend"
-#property indicator_type2   DRAW_COLOR_LINE
-#property indicator_color2  clrGreen, clrRed, clrNONE
-#property indicator_width2  4
+   #property indicator_label1  "Filling"
+   #property indicator_type1   DRAW_FILLING
+   #property indicator_color1  C'40,40,40', C'40,40,40'
+
+   #property indicator_label2  "SuperTrend"
+   #property indicator_type2   DRAW_COLOR_LINE
+   #property indicator_color2  clrGreen, clrRed, clrNONE
+   #property indicator_width2  4
+#else
+   #property indicator_buffers 9
+#endif
 
 //--- 中央価格の計算方法を選択するenum
 enum ENUM_MIDDLE_TYPE
@@ -78,6 +83,21 @@ int OnInit()
    SetIndexBuffer(6, Down);
    SetIndexBuffer(7, Middle);
    SetIndexBuffer(8, trend);
+
+   //--- MQL4 drawing settings
+   SetIndexStyle(0, DRAW_LINE, STYLE_SOLID, 1, C'40,40,40');
+   SetIndexStyle(1, DRAW_LINE, STYLE_SOLID, 1, C'40,40,40');
+   SetIndexStyle(2, DRAW_LINE, STYLE_SOLID, 4, clrGreen);
+   SetIndexStyle(3, DRAW_NONE);
+   SetIndexStyle(4, DRAW_NONE);
+   SetIndexStyle(5, DRAW_NONE);
+   SetIndexStyle(6, DRAW_NONE);
+   SetIndexStyle(7, DRAW_NONE);
+   SetIndexStyle(8, DRAW_NONE);
+
+   SetIndexLabel(0, "Filling A");
+   SetIndexLabel(1, "Filling B");
+   SetIndexLabel(2, "SuperTrend");
 #else
    SetIndexBuffer(0, Filled_a, INDICATOR_DATA);
    SetIndexBuffer(1, Filled_b, INDICATOR_DATA);
