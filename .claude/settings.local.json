@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix SuperTrend indicator display and trend detection logic\n\n- Fix buffer structure: change from 4 to 6 buffers to separate display and calculation buffers\n- Fix trend detection logic: compare current close with previous band values instead of current band values\n- Fix band continuation calculation to prevent incorrect band jumps\n- Unify logic between MQ4 and MQ5 versions\n- Fix issue where red line was displayed above candles during uptrend\n\nThis resolves the display bug where the indicator showed incorrect trend colors and positions.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)",
+      "Bash(git add Indicator_SuperTrend_Universal.mq4 Indicator_SuperTrend_Universal.mq5)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nReimplement SuperTrend indicator with original logic\n\n- Implement exact logic from original \"Super Trend Indicator.mq5\"\n- Change loop direction: forward (i++) instead of backward\n- Move trend detection BEFORE band adjustment (critical fix)\n- Add global variables: changeOfTrend, flag, flagh\n- Fix band adjustment logic to match original algorithm\n- Remove ArraySetAsSeries for MQL5 to use standard indexing\n\nThis ensures the indicator works exactly as the original version.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nRecreate SuperTrend indicator based on original with alerts\n\n- Start from original \"Super Trend Indicator.mq5\" by FxGeek\n- Add email and push notification features\n- Keep all original logic intact (9 buffers, COLOR_LINE, etc.)\n- Make compatible with both MQL4 and MQL5\n- Alert only on trend changes at latest bar\n- EA can use iCustom to access trend buffer for entry/exit\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix MQL4 compile error: DRAW_COLOR_LINE not supported\n\n- Separate #property directives for MQL4 and MQL5\n- MQL4: Use DRAW_LINE for single color display\n- MQL5: Keep DRAW_COLOR_LINE for color switching\n- Add SetIndexStyle for MQL4 drawing settings\n- Both versions fully functional, EA can access trend buffer\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git rm Indicator_SuperTrend_Universal.mq4 Indicator_SuperTrend_Universal.mq5)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nRecreate indicator files based on original SuperTrend\n\nMQL5 version:\n- Exact copy of original \"Super Trend Indicator.mq5\"\n- Added email and push notification on trend change\n- All original logic, buffers, and display preserved\n\nMQL4 version:\n- Ported original logic to MQL4 syntax\n- Use 2 line buffers (GreenLine/RedLine) instead of COLOR_LINE\n- Same calculation logic as original\n- Added email and push notification on trend change\n- EA can access trend buffer (index 8) via iCustom\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
