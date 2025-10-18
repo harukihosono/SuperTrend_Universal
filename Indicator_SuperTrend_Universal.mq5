@@ -33,6 +33,9 @@ double ColorBuffer[];      // 将来の拡張用
 
 //--- Global variables
 int lastAlertBar = -1;
+int changeOfTrend = 0;
+int flag = 0;
+int flagh = 0;
 
 #ifdef __MQL5__
    #define IndicatorDigits _Digits
@@ -89,13 +92,6 @@ int OnInit()
    atrHandle = iATR(_Symbol, _Period, AtrPeriod);
    if(atrHandle == INVALID_HANDLE)
       return(INIT_FAILED);
-
-   ArraySetAsSeries(UpTrendBuffer, true);
-   ArraySetAsSeries(DownTrendBuffer, true);
-   ArraySetAsSeries(UpBand, true);
-   ArraySetAsSeries(DownBand, true);
-   ArraySetAsSeries(TrendBuffer, true);
-   ArraySetAsSeries(ColorBuffer, true);
    #endif
 
    return(INIT_SUCCEEDED);
@@ -244,7 +240,6 @@ int OnCalculate(const int rates_total,
                 const long &volume[],
                 const int &spread[])
 {
-   int limit;
    double atrArray[];
 
    //--- check for new bar
@@ -255,108 +250,113 @@ int OnCalculate(const int rates_total,
       lastAlertBar = -1;
    }
 
-   //--- set limit for calculation
-   if(prev_calculated == 0)
-      limit = rates_total - AtrPeriod - 1;
-   else
-      limit = rates_total - prev_calculated;
-
    //--- prepare ATR array
-   ArraySetAsSeries(atrArray, true);
    if(CopyBuffer(atrHandle, 0, 0, rates_total, atrArray) < 0)
       return(0);
 
-   //--- main loop (MQL5 uses reversed indexing)
-   for(int i = limit; i >= 0; i--)
+   //--- set starting position
+   int first;
+   if(prev_calculated > rates_total || prev_calculated <= 0)
    {
-      int pos = rates_total - 1 - i;
+      first = AtrPeriod;
+   }
+   else
+   {
+      first = prev_calculated - 1;
+   }
 
+   //--- main loop (same as original: forward direction)
+   for(int i = first; i < rates_total && !IsStopped(); i++)
+   {
       //--- calculate HLC/3 (middle price)
-      double hlc3 = (high[pos] + low[pos] + close[pos]) / 3.0;
+      double hlc3 = (high[i] + low[i] + close[i]) / 3.0;
 
       //--- calculate basic upper and lower bands
       UpBand[i] = hlc3 + (Multiplier * atrArray[i]);
       DownBand[i] = hlc3 - (Multiplier * atrArray[i]);
 
-      //--- adjust bands based on previous values (trend continuation)
-      if(i < rates_total - 1)
+      //--- determine trend (BEFORE adjusting bands)
+      if(close[i] > UpBand[i-1])
       {
-         // 下のバンド調整：トレンド継続時は前回値を下回らないように
-         if(DownBand[i] < DownBand[i+1] || close[pos-1] < DownBand[i+1])
-            DownBand[i] = DownBand[i];
-         else
-            DownBand[i] = DownBand[i+1];
-
-         // 上のバンド調整：トレンド継続時は前回値を上回らないように
-         if(UpBand[i] > UpBand[i+1] || close[pos-1] > UpBand[i+1])
-            UpBand[i] = UpBand[i];
-         else
-            UpBand[i] = UpBand[i+1];
+         TrendBuffer[i] = 1;
+         if(TrendBuffer[i-1] == -1) changeOfTrend = 1;
+      }
+      else if(close[i] < DownBand[i-1])
+      {
+         TrendBuffer[i] = -1;
+         if(TrendBuffer[i-1] == 1) changeOfTrend = 1;
+      }
+      else if(TrendBuffer[i-1] == 1)
+      {
+         TrendBuffer[i] = 1;
+         changeOfTrend = 0;
+      }
+      else if(TrendBuffer[i-1] == -1)
+      {
+         TrendBuffer[i] = -1;
+         changeOfTrend = 0;
       }
 
-      //--- determine trend
-      double currentTrend;
-
-      if(i < rates_total - 1)
+      //--- detect trend change flags
+      if(TrendBuffer[i] < 0 && TrendBuffer[i-1] > 0)
       {
-         // トレンド判定：前回のバンド値と比較
-         if(i > 0)
-         {
-            if(close[pos] > UpBand[i+1])
-               currentTrend = 1;  // 上昇トレンド
-            else if(close[pos] < DownBand[i+1])
-               currentTrend = -1; // 下降トレンド
-            else
-               currentTrend = TrendBuffer[i+1]; // 前のトレンドを継続
-         }
-         else
-         {
-            // 最新バー（i=0）の場合
-            if(close[pos] > UpBand[i+1])
-               currentTrend = 1;
-            else if(close[pos] < DownBand[i+1])
-               currentTrend = -1;
-            else
-               currentTrend = TrendBuffer[i+1];
-         }
+         flag = 1;
       }
       else
       {
-         currentTrend = 1;
+         flag = 0;
       }
 
-      //--- save trend
-      TrendBuffer[i] = currentTrend;
+      if(TrendBuffer[i] > 0 && TrendBuffer[i-1] < 0)
+      {
+         flagh = 1;
+      }
+      else
+      {
+         flagh = 0;
+      }
+
+      //--- adjust bands based on trend
+      if(TrendBuffer[i] > 0 && DownBand[i] < DownBand[i-1])
+         DownBand[i] = DownBand[i-1];
+
+      if(TrendBuffer[i] < 0 && UpBand[i] > UpBand[i-1])
+         UpBand[i] = UpBand[i-1];
+
+      if(flag == 1)
+         UpBand[i] = hlc3 + (Multiplier * atrArray[i]);
+
+      if(flagh == 1)
+         DownBand[i] = hlc3 - (Multiplier * atrArray[i]);
 
       //--- set display buffers based on trend
-      if(currentTrend == 1)
+      if(TrendBuffer[i] == 1)
       {
-         // 上昇トレンド：下のバンドを緑で表示
          UpTrendBuffer[i] = DownBand[i];
          DownTrendBuffer[i] = 0;
          ColorBuffer[i] = 0;
-
-         //--- check for trend change to uptrend
-         if(i == 0 && i < rates_total - 1 && TrendBuffer[i+1] == -1 && lastAlertBar != 0)
-         {
-            if(EnableEmailAlert || EnablePushAlert)
-               SendAlert("上昇トレンド (Bullish)");
-            lastAlertBar = 0;
-         }
       }
-      else
+      else if(TrendBuffer[i] == -1)
       {
-         // 下降トレンド：上のバンドを赤で表示
          UpTrendBuffer[i] = 0;
          DownTrendBuffer[i] = UpBand[i];
          ColorBuffer[i] = 1;
+      }
 
-         //--- check for trend change to downtrend
-         if(i == 0 && i < rates_total - 1 && TrendBuffer[i+1] == 1 && lastAlertBar != 0)
+      //--- check for alerts on current bar (index rates_total-1)
+      if(i == rates_total - 1)
+      {
+         if(TrendBuffer[i] == 1 && TrendBuffer[i-1] == -1 && lastAlertBar != i)
+         {
+            if(EnableEmailAlert || EnablePushAlert)
+               SendAlert("上昇トレンド (Bullish)");
+            lastAlertBar = i;
+         }
+         else if(TrendBuffer[i] == -1 && TrendBuffer[i-1] == 1 && lastAlertBar != i)
          {
             if(EnableEmailAlert || EnablePushAlert)
                SendAlert("下降トレンド (Bearish)");
-            lastAlertBar = 0;
+            lastAlertBar = i;
          }
       }
    }
