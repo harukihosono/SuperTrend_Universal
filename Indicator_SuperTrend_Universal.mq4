@@ -8,7 +8,7 @@
 #property version   "3.00"
 #property strict
 #property indicator_chart_window
-#property indicator_buffers 4
+#property indicator_buffers 6
 #property indicator_plots   2
 #property indicator_color1 clrGreen
 #property indicator_color2 clrRed
@@ -24,10 +24,12 @@ input bool   EnableEmailAlert = false;       // メール通知
 input bool   EnablePushAlert = false;        // プッシュ通知
 
 //--- Indicator buffers
-double UpTrendBuffer[];
-double DownTrendBuffer[];
-double TrendBuffer[];
-double ColorBuffer[];
+double UpTrendBuffer[];    // 表示用：上昇トレンド（緑）
+double DownTrendBuffer[];  // 表示用：下降トレンド（赤）
+double UpBand[];           // 計算用：上のバンド
+double DownBand[];         // 計算用：下のバンド
+double TrendBuffer[];      // トレンド方向 (1=上昇, -1=下降)
+double ColorBuffer[];      // 将来の拡張用
 
 //--- Global variables
 int lastAlertBar = -1;
@@ -49,8 +51,10 @@ int OnInit()
    //--- indicator buffers mapping
    SetIndexBuffer(0, UpTrendBuffer);
    SetIndexBuffer(1, DownTrendBuffer);
-   SetIndexBuffer(2, TrendBuffer);
-   SetIndexBuffer(3, ColorBuffer);
+   SetIndexBuffer(2, UpBand);
+   SetIndexBuffer(3, DownBand);
+   SetIndexBuffer(4, TrendBuffer);
+   SetIndexBuffer(5, ColorBuffer);
 
    #ifdef __MQL4__
    //--- MQL4 drawing settings
@@ -58,6 +62,8 @@ int OnInit()
    SetIndexStyle(1, DRAW_LINE, STYLE_SOLID, 2, clrRed);
    SetIndexStyle(2, DRAW_NONE);
    SetIndexStyle(3, DRAW_NONE);
+   SetIndexStyle(4, DRAW_NONE);
+   SetIndexStyle(5, DRAW_NONE);
 
    SetIndexLabel(0, "SuperTrend Up");
    SetIndexLabel(1, "SuperTrend Down");
@@ -141,34 +147,27 @@ int OnCalculate(const int rates_total,
       //--- calculate ATR
       double atr = iATR(NULL, 0, AtrPeriod, i);
 
-      //--- calculate HLC/3
+      //--- calculate HLC/3 (middle price)
       double hlc3 = (high[i] + low[i] + close[i]) / 3.0;
 
       //--- calculate basic upper and lower bands
-      double basicUpperBand = hlc3 + (Multiplier * atr);
-      double basicLowerBand = hlc3 - (Multiplier * atr);
+      UpBand[i] = hlc3 + (Multiplier * atr);
+      DownBand[i] = hlc3 - (Multiplier * atr);
 
-      //--- calculate final upper and lower bands
-      double finalUpperBand = basicUpperBand;
-      double finalLowerBand = basicLowerBand;
-
+      //--- adjust bands based on previous values (trend continuation)
       if(i < rates_total - 1)
       {
-         if(DownTrendBuffer[i+1] != 0)
-         {
-            if(basicLowerBand > DownTrendBuffer[i+1] || close[i+1] < DownTrendBuffer[i+1])
-               finalLowerBand = basicLowerBand;
-            else
-               finalLowerBand = DownTrendBuffer[i+1];
-         }
+         // 下のバンド調整：トレンド継続時は前回値を下回らないように
+         if(DownBand[i] < DownBand[i+1] || close[i+1] < DownBand[i+1])
+            DownBand[i] = DownBand[i];
+         else
+            DownBand[i] = DownBand[i+1];
 
-         if(UpTrendBuffer[i+1] != 0)
-         {
-            if(basicUpperBand < UpTrendBuffer[i+1] || close[i+1] > UpTrendBuffer[i+1])
-               finalUpperBand = basicUpperBand;
-            else
-               finalUpperBand = UpTrendBuffer[i+1];
-         }
+         // 上のバンド調整：トレンド継続時は前回値を上回らないように
+         if(UpBand[i] > UpBand[i+1] || close[i+1] > UpBand[i+1])
+            UpBand[i] = UpBand[i];
+         else
+            UpBand[i] = UpBand[i+1];
       }
 
       //--- determine trend
@@ -176,24 +175,27 @@ int OnCalculate(const int rates_total,
 
       if(i < rates_total - 1)
       {
-         if(close[i] > finalUpperBand)
-            currentTrend = 1;  // Uptrend
-         else if(close[i] < finalLowerBand)
-            currentTrend = -1; // Downtrend
+         // トレンド判定：前回のバンド値と比較
+         if(close[i] > UpBand[i+1])
+            currentTrend = 1;  // 上昇トレンド
+         else if(close[i] < DownBand[i+1])
+            currentTrend = -1; // 下降トレンド
          else
-            currentTrend = TrendBuffer[i+1];
+            currentTrend = TrendBuffer[i+1]; // 前のトレンドを継続
       }
       else
       {
          currentTrend = 1;
       }
 
-      //--- save values to buffers
+      //--- save trend
       TrendBuffer[i] = currentTrend;
 
+      //--- set display buffers based on trend
       if(currentTrend == 1)
       {
-         UpTrendBuffer[i] = finalLowerBand;
+         // 上昇トレンド：下のバンドを緑で表示
+         UpTrendBuffer[i] = DownBand[i];
          DownTrendBuffer[i] = 0;
          ColorBuffer[i] = 0;  // Green
 
@@ -207,8 +209,9 @@ int OnCalculate(const int rates_total,
       }
       else
       {
+         // 下降トレンド：上のバンドを赤で表示
          UpTrendBuffer[i] = 0;
-         DownTrendBuffer[i] = finalUpperBand;
+         DownTrendBuffer[i] = UpBand[i];
          ColorBuffer[i] = 1;  // Red
 
          //--- check for trend change to downtrend
