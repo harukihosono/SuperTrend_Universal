@@ -182,8 +182,10 @@ void OpenPosition(ENUM_ORDER_TYPE orderType)
 {
    MqlTradeRequest request;
    MqlTradeResult result;
+   MqlTradeCheckResult checkResult;
    ZeroMemory(request);
    ZeroMemory(result);
+   ZeroMemory(checkResult);
 
    request.action = TRADE_ACTION_DEAL;
    request.symbol = _Symbol;
@@ -194,10 +196,10 @@ void OpenPosition(ENUM_ORDER_TYPE orderType)
    request.type_filling = ORDER_FILLING_FOK;
 
    // Try different filling modes if FOK fails
-   if(!OrderCheck(request, result))
+   if(!OrderCheck(request, checkResult))
    {
       request.type_filling = ORDER_FILLING_IOC;
-      if(!OrderCheck(request, result))
+      if(!OrderCheck(request, checkResult))
       {
          request.type_filling = ORDER_FILLING_RETURN;
       }
